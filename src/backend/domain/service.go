@@ -52,7 +52,7 @@ func (s *Service) CreateOrder(ctx context.Context, shopID int64, input CreateOrd
 	if !found || !integration.Enabled {
 		return OrderSendResult{
 			Order:      order,
-			SendStatus: "skipped",
+			SendStatus: SendStatusSkipped,
 		}, nil
 	}
 
@@ -67,7 +67,7 @@ func (s *Service) CreateOrder(ctx context.Context, shopID int64, input CreateOrd
 	if !reserved {
 		return OrderSendResult{
 			Order:      order,
-			SendStatus: "skipped",
+			SendStatus: SendStatusSkipped,
 		}, nil
 	}
 
@@ -80,7 +80,7 @@ func (s *Service) CreateOrder(ctx context.Context, shopID int64, input CreateOrd
 
 		return OrderSendResult{
 			Order:      order,
-			SendStatus: "failed",
+			SendStatus: SendStatusFailed,
 			SendError:  &errText,
 		}, nil
 	}
@@ -91,7 +91,7 @@ func (s *Service) CreateOrder(ctx context.Context, shopID int64, input CreateOrd
 
 	return OrderSendResult{
 		Order:      order,
-		SendStatus: "sent",
+		SendStatus: SendStatusSent,
 	}, nil
 }
 

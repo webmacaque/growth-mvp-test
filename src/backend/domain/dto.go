@@ -2,6 +2,12 @@ package domain
 
 import "time"
 
+const (
+	SendStatusSent    = "sent"
+	SendStatusFailed  = "failed"
+	SendStatusSkipped = "skipped"
+)
+
 type ConnectTelegramInput struct {
 	BotToken string `json:"botToken" binding:"required"`
 	ChatID   string `json:"chatId" binding:"required"`

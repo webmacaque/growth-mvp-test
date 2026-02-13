@@ -119,16 +119,16 @@ func TestCreateOrderEnabledIntegrationWritesSentLog(t *testing.T) {
 
 	svc := domain.NewService(integrationRepo, orderRepo, sendLogRepo, telegramClient)
 	out, err := svc.CreateOrder(context.Background(), 1, domain.CreateOrderInput{
-		Number:       "A-1",
+		Number:       "A-0001",
 		Total:        100,
-		CustomerName: "Ann",
+		CustomerName: "Anna",
 	})
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if out.SendStatus != "sent" {
+	if out.SendStatus != domain.SendStatusSent {
 		t.Fatalf("expected sent status, got %s", out.SendStatus)
 	}
 
@@ -158,24 +158,24 @@ func TestDuplicateSendDoesNotSendAgain(t *testing.T) {
 	telegramClient := &MockTelegramClient{}
 	svc := domain.NewService(integrationRepo, orderRepo, sendLogRepo, telegramClient)
 
-	first, err := svc.CreateOrder(context.Background(), 1, domain.CreateOrderInput{
-		Number:       "A-1",
+	sendLogRepo.Reserve(context.Background(), 1, 1, "msg", time.Now())
+
+	out, err := svc.CreateOrder(context.Background(), 1, domain.CreateOrderInput{
+		Number:       "A-0001",
 		Total:        100,
-		CustomerName: "Ann",
+		CustomerName: "Anna",
 	})
 
 	if err != nil {
-		t.Fatalf("unexpected error on first call: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	reservedAgain, err := sendLogRepo.Reserve(context.Background(), 1, first.Order.ID, "same", time.Now())
-
-	if err != nil {
-		t.Fatalf("unexpected reserve error: %v", err)
+	if telegramClient.calls != 0 {
+		t.Fatalf("expected 0 telegram calls, got %d", telegramClient.calls)
 	}
 
-	if reservedAgain {
-		t.Fatal("expected duplicate reserve to be rejected")
+	if out.SendStatus != domain.SendStatusSkipped {
+		t.Fatalf("expected skipped status, got %s", out.SendStatus)
 	}
 }
 
@@ -209,7 +209,7 @@ func TestTelegramFailureDoesNotBreakOrderCreation(t *testing.T) {
 		t.Fatal("expected order to be created")
 	}
 
-	if out.SendStatus != "failed" {
+	if out.SendStatus != domain.SendStatusFailed {
 		t.Fatalf("expected failed status, got %s", out.SendStatus)
 	}
 
