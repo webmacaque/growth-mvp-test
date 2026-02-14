@@ -15,6 +15,7 @@ import (
 	"growth-mvp/backend/api"
 	"growth-mvp/backend/domain"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -56,6 +57,28 @@ func main() {
 
 	router := gin.New()
 	router.Use(gin.Recovery(), gin.Logger())
+	router.Use(cors.New(cors.Config{
+		AllowOrigins: []string{
+			"http://localhost:5173",
+			"http://127.0.0.1:5173",
+		},
+		AllowMethods: []string{
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+			http.MethodOptions,
+		},
+		AllowHeaders: []string{
+			"Origin",
+			"Content-Type",
+			"Accept",
+			"Authorization",
+		},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 	handler.RegisterRoutes(router)
 
 	server := &http.Server{
