@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"time"
 
@@ -65,6 +66,46 @@ RETURNING id, shop_id, number, total, customer_name, created_at`
 	err := r.db.QueryRow(ctx, q, shopID, input.Number, input.Total, input.CustomerName).
 		Scan(&out.ID, &out.ShopID, &out.Number, &out.Total, &out.CustomerName, &out.CreatedAt)
 	return out, err
+}
+
+func (r *OrderRepository) List(ctx context.Context, shopID int64, limit, offset int) ([]domain.OrderListItem, error) {
+	const q = `
+SELECT
+  o.id,
+  o.shop_id,
+  o.number,
+  o.total,
+  o.customer_name,
+  o.created_at,
+  tsl.status::text AS send_status
+FROM orders o
+LEFT JOIN telegram_send_log tsl
+  ON tsl.shop_id = o.shop_id AND tsl.order_id = o.id
+WHERE o.shop_id = $1
+ORDER BY o.created_at DESC, o.id DESC
+LIMIT $2 OFFSET $3`
+	rows, err := r.db.Query(ctx, q, shopID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]domain.OrderListItem, 0, limit)
+	for rows.Next() {
+		var item domain.OrderListItem
+		var sendStatus sql.NullString
+		if err := rows.Scan(&item.ID, &item.ShopID, &item.Number, &item.Total, &item.CustomerName, &item.CreatedAt, &sendStatus); err != nil {
+			return nil, err
+		}
+		if sendStatus.Valid {
+			item.SendStatus = sendStatus.String
+		}
+		out = append(out, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 type SendLogRepository struct {

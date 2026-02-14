@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"growth-mvp/backend/adapters/postgres"
 	"growth-mvp/backend/adapters/telegram"
@@ -46,18 +49,35 @@ func main() {
 	integrationRepo := postgres.NewIntegrationRepository(db)
 	orderRepo := postgres.NewOrderRepository(db)
 	sendLogRepo := postgres.NewSendLogRepository(db)
-	telegramClient := telegram.NewClient()
+	telegramClient := telegram.NewClient(cfg.TelegramSendTimeout)
 
-	service := domain.NewService(integrationRepo, orderRepo, sendLogRepo, telegramClient)
+	service := domain.NewService(integrationRepo, orderRepo, sendLogRepo, telegramClient, cfg.TelegramMaxAttempts)
 	handler := api.NewHandler(service)
 
 	router := gin.New()
 	router.Use(gin.Recovery(), gin.Logger())
 	handler.RegisterRoutes(router)
 
+	server := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: router,
+	}
+
+	go func() {
+		<-ctx.Done()
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			logger.Error("http shutdown failed", "error", err)
+		}
+
+	}()
+
 	logger.Info("starting API server", "port", cfg.Port)
 
-	if err := router.Run(":" + cfg.Port); err != nil {
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		logger.Error("server stopped with error", "error", err)
 		os.Exit(1)
 	}

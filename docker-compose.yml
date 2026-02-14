@@ -2,13 +2,13 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: growth
-      POSTGRES_PASSWORD: growth
-      POSTGRES_DB: growth_mvp
+      POSTGRES_USER: ${POSTGRES_USER:-growth}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-growth}
+      POSTGRES_DB: ${POSTGRES_DB:-growth_mvp}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U growth -d growth_mvp"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-growth} -d ${POSTGRES_DB:-growth_mvp}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -20,12 +20,13 @@ services:
       context: ./src/backend
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgres://growth:growth@db:5432/growth_mvp?sslmode=disable
-      PORT: "8080"
-      TELEGRAM_MODE: mock
-      MIGRATIONS_PATH: /app/migrations
+      DATABASE_URL: ${DATABASE_URL:-postgres://growth:growth@db:5432/growth_mvp?sslmode=disable}
+      PORT: ${PORT:-8080}
+      MIGRATIONS_PATH: ${MIGRATIONS_PATH:-/app/migrations}
+      TELEGRAM_MAX_ATTEMPTS: ${TELEGRAM_MAX_ATTEMPTS:-3}
+      TELEGRAM_SEND_TIMEOUT: ${TELEGRAM_SEND_TIMEOUT:-5s}
     ports:
-      - "8080:8080"
+      - "${API_PORT:-8080}:8080"
     depends_on:
       db:
         condition: service_healthy

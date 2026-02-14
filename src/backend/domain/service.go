@@ -16,6 +16,9 @@ type Service struct {
 	orders       OrderRepository
 	sendLogs     SendLogRepository
 	telegram     TelegramClient
+
+	retryMaxAttempts int
+	retryBaseDelay   time.Duration
 }
 
 func NewService(
@@ -23,17 +26,57 @@ func NewService(
 	orders OrderRepository,
 	sendLogs SendLogRepository,
 	telegram TelegramClient,
+	retryMaxAttempts int,
 ) *Service {
+	if retryMaxAttempts <= 0 {
+		retryMaxAttempts = 3
+	}
+
 	return &Service{
-		integrations: integrations,
-		orders:       orders,
-		sendLogs:     sendLogs,
-		telegram:     telegram,
+		integrations:     integrations,
+		orders:           orders,
+		sendLogs:         sendLogs,
+		telegram:         telegram,
+		retryMaxAttempts: retryMaxAttempts,
+		retryBaseDelay:   500 * time.Millisecond,
 	}
 }
 
 func (s *Service) ConnectTelegram(ctx context.Context, shopID int64, input ConnectTelegramInput) (TelegramIntegration, error) {
 	return s.integrations.Upsert(ctx, shopID, input)
+}
+
+func (s *Service) ListOrders(ctx context.Context, shopID int64, limit, offset int) (ListOrdersResult, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	if limit > 100 {
+		limit = 100
+	}
+
+	if offset < 0 {
+		offset = 0
+	}
+
+	rows, err := s.orders.List(ctx, shopID, limit+1, offset)
+
+	if err != nil {
+		return ListOrdersResult{}, err
+	}
+
+	hasMore := len(rows) > limit
+
+	if hasMore {
+		rows = rows[:limit]
+	}
+
+	return ListOrdersResult{
+		Items:   rows,
+		Limit:   limit,
+		Offset:  offset,
+		HasMore: hasMore,
+	}, nil
 }
 
 func (s *Service) CreateOrder(ctx context.Context, shopID int64, input CreateOrderInput) (OrderSendResult, error) {
@@ -56,7 +99,7 @@ func (s *Service) CreateOrder(ctx context.Context, shopID int64, input CreateOrd
 		}, nil
 	}
 
-	message := fmt.Sprintf("Заказ %s на сумму %.2f ₽, покупатель: %s", order.Number, order.Total, order.CustomerName)
+	message := fmt.Sprintf("Новый заказ %s на сумму %.2f ₽, клиент %s", order.Number, order.Total, order.CustomerName)
 	reservedAt := time.Now()
 	reserved, err := s.sendLogs.Reserve(ctx, shopID, order.ID, message, reservedAt)
 
@@ -71,28 +114,32 @@ func (s *Service) CreateOrder(ctx context.Context, shopID int64, input CreateOrd
 		}, nil
 	}
 
-	if err := s.telegram.SendMessage(ctx, integration.BotToken, integration.ChatID, message); err != nil {
-		errText := err.Error()
-
-		if finalizeErr := s.sendLogs.Finalize(ctx, shopID, order.ID, TelegramSendStatusFailed, &errText, time.Now()); finalizeErr != nil {
-			return OrderSendResult{}, finalizeErr
-		}
-
-		return OrderSendResult{
-			Order:      order,
-			SendStatus: SendStatusFailed,
-			SendError:  &errText,
-		}, nil
-	}
-
-	if err := s.sendLogs.Finalize(ctx, shopID, order.ID, TelegramSendStatusSent, nil, time.Now()); err != nil {
-		return OrderSendResult{}, err
-	}
+	go s.trySendTelegram(shopID, order.ID, integration.BotToken, integration.ChatID, message)
 
 	return OrderSendResult{
 		Order:      order,
-		SendStatus: SendStatusSent,
+		SendStatus: SendStatusPending,
 	}, nil
+}
+
+func (s *Service) trySendTelegram(shopID, orderID int64, botToken, chatID, message string) {
+	var sendErr error
+
+	for attempt := 1; attempt <= s.retryMaxAttempts; attempt++ {
+		sendErr = s.telegram.SendMessage(context.Background(), botToken, chatID, message)
+
+		if sendErr == nil {
+			_ = s.sendLogs.Finalize(context.Background(), shopID, orderID, TelegramSendStatusSent, nil, time.Now())
+			return
+		}
+
+		if attempt < s.retryMaxAttempts {
+			time.Sleep(s.retryBaseDelay * time.Duration(attempt))
+		}
+	}
+
+	errText := sendErr.Error()
+	_ = s.sendLogs.Finalize(context.Background(), shopID, orderID, TelegramSendStatusFailed, &errText, time.Now())
 }
 
 func (s *Service) GetTelegramStatus(ctx context.Context, shopID int64) (TelegramStatus, error) {

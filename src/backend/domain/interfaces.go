@@ -12,6 +12,7 @@ type IntegrationRepository interface {
 
 type OrderRepository interface {
 	Create(ctx context.Context, shopID int64, input CreateOrderInput) (Order, error)
+	List(ctx context.Context, shopID int64, limit, offset int) ([]OrderListItem, error)
 }
 
 type SendLogRepository interface {

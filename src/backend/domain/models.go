@@ -28,6 +28,16 @@ type Order struct {
 	CreatedAt    time.Time `json:"createdAt"`
 }
 
+type OrderListItem struct {
+	ID           int64     `json:"id"`
+	ShopID       int64     `json:"shopId"`
+	Number       string    `json:"number"`
+	Total        float64   `json:"total"`
+	CustomerName string    `json:"customerName"`
+	CreatedAt    time.Time `json:"createdAt"`
+	SendStatus   string    `json:"sendStatus"`
+}
+
 type TelegramSendLog struct {
 	ID      int64
 	ShopID  int64

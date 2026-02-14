@@ -6,6 +6,7 @@ const (
 	SendStatusSent    = "sent"
 	SendStatusFailed  = "failed"
 	SendStatusSkipped = "skipped"
+	SendStatusPending = "pending"
 )
 
 type ConnectTelegramInput struct {
@@ -24,6 +25,13 @@ type OrderSendResult struct {
 	Order      Order   `json:"order"`
 	SendStatus string  `json:"sendStatus"`
 	SendError  *string `json:"sendError,omitempty"`
+}
+
+type ListOrdersResult struct {
+	Items   []OrderListItem `json:"items"`
+	Limit   int             `json:"limit"`
+	Offset  int             `json:"offset"`
+	HasMore bool            `json:"hasMore"`
 }
 
 type TelegramStatus struct {

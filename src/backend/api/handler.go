@@ -22,11 +22,13 @@ func NewHandler(service *domain.Service) *Handler {
 func (h *Handler) RegisterRoutes(router *gin.Engine) {
 	router.POST("/shops/:shopId/telegram/connect", h.connectTelegram)
 	router.POST("/shops/:shopId/orders", h.createOrder)
+	router.GET("/shops/:shopId/orders", h.listOrders)
 	router.GET("/shops/:shopId/telegram/status", h.telegramStatus)
 }
 
 func (h *Handler) connectTelegram(c *gin.Context) {
 	shopID, ok := parseShopID(c)
+
 	if !ok {
 		return
 	}
@@ -58,6 +60,7 @@ func (h *Handler) connectTelegram(c *gin.Context) {
 
 func (h *Handler) createOrder(c *gin.Context) {
 	shopID, ok := parseShopID(c)
+
 	if !ok {
 		return
 	}
@@ -84,25 +87,66 @@ func (h *Handler) createOrder(c *gin.Context) {
 	c.JSON(http.StatusCreated, out)
 }
 
-func (h *Handler) telegramStatus(c *gin.Context) {
+func (h *Handler) listOrders(c *gin.Context) {
 	shopID, ok := parseShopID(c)
 	if !ok {
 		return
 	}
-	out, err := h.service.GetTelegramStatus(c.Request.Context(), shopID)
+
+	limit := 20
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		v, err := strconv.Atoi(raw)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit"})
+			return
+		}
+		limit = v
+	}
+
+	offset := 0
+	if raw := strings.TrimSpace(c.Query("offset")); raw != "" {
+		v, err := strconv.Atoi(raw)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid offset"})
+			return
+		}
+		offset = v
+	}
+
+	out, err := h.service.ListOrders(c.Request.Context(), shopID, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	c.JSON(http.StatusOK, out)
+}
+
+func (h *Handler) telegramStatus(c *gin.Context) {
+	shopID, ok := parseShopID(c)
+
+	if !ok {
+		return
+	}
+
+	out, err := h.service.GetTelegramStatus(c.Request.Context(), shopID)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusOK, out)
 }
 
 func parseShopID(c *gin.Context) (int64, bool) {
 	raw := c.Param("shopId")
 	shopID, err := strconv.ParseInt(raw, 10, 64)
+
 	if err != nil || shopID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid shopId"})
 		return 0, false
 	}
+
 	return shopID, true
 }
