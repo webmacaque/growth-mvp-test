@@ -11,6 +11,7 @@ type Config struct {
 	Port                string
 	DatabaseURL         string
 	MigrationsPath      string
+	FrontendURL         string
 	TelegramSendTimeout time.Duration
 	TelegramMaxAttempts int
 }
@@ -20,6 +21,7 @@ func LoadConfig() (Config, error) {
 		Port:                env("PORT", "8080"),
 		DatabaseURL:         os.Getenv("DATABASE_URL"),
 		MigrationsPath:      env("MIGRATIONS_PATH", "migrations"),
+		FrontendURL:         env("FRONTEND_URL", "http://localhost:5173"),
 		TelegramSendTimeout: envDuration("TELEGRAM_SEND_TIMEOUT", 5*time.Second),
 		TelegramMaxAttempts: envInt("TELEGRAM_MAX_ATTEMPTS", 3),
 	}

@@ -23,6 +23,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgres://growth:growth@db:5432/growth_mvp?sslmode=disable}
       PORT: ${PORT:-8080}
       MIGRATIONS_PATH: ${MIGRATIONS_PATH:-/app/migrations}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:9999}
       TELEGRAM_MAX_ATTEMPTS: ${TELEGRAM_MAX_ATTEMPTS:-3}
       TELEGRAM_SEND_TIMEOUT: ${TELEGRAM_SEND_TIMEOUT:-5s}
     ports:
@@ -30,6 +31,17 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - api
 
 volumes:
   pgdata:

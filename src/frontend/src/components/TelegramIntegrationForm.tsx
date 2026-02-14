@@ -1,4 +1,4 @@
-import type { SubmitEvent } from 'react'
+import { useState, type SubmitEvent } from 'react'
 import type { ConnectTelegramPayload } from '../api/telegram'
 
 type TelegramIntegrationFormProps = {
@@ -16,6 +16,8 @@ export default function TelegramIntegrationForm({
   onSubmit,
   onChange,
 }: TelegramIntegrationFormProps) {
+  const [isChatIdHelpOpen, setIsChatIdHelpOpen] = useState(false)
+
   return (
     <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="space-y-1">
@@ -40,9 +42,23 @@ export default function TelegramIntegrationForm({
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="chatId" className="block text-sm font-medium text-slate-700">
-            Chat ID
-          </label>
+          <div className="flex items-center gap-2">
+            <label htmlFor="chatId" className="block text-sm font-medium text-slate-700">
+              Chat ID
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsChatIdHelpOpen((previous) => !previous)}
+                aria-expanded={isChatIdHelpOpen}
+                aria-controls="chat-id-help"
+                aria-label="Как узнать Chat ID"
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              >
+                ?
+              </button>
+            </div>
+          </div>
           <input
             id="chatId"
             type="text"
@@ -53,6 +69,43 @@ export default function TelegramIntegrationForm({
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
             disabled={isSaving}
           />
+          {isChatIdHelpOpen ? (
+            <div
+              id="chat-id-help"
+              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700"
+            >
+              <p>
+                Напишите{' '}
+                <a
+                  href="https://t.me/userinfobot"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-blue-700 hover:text-blue-800 hover:underline"
+                >
+                  @userinfobot
+                </a>{' '}
+                или{' '}
+                <a
+                  href="https://t.me/RawDataBot"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-blue-700 hover:text-blue-800 hover:underline"
+                >
+                  @RawDataBot
+                </a>{' '}
+                в Telegram и используйте{' '}
+                <code className="rounded bg-slate-200 px-1 py-0.5 text-xs text-slate-800">chat_id</code> из ответа.
+              </p>
+              <p className="mt-2">
+                Либо откройте URL:{' '}
+                <code className="rounded bg-slate-200 px-1 py-0.5 text-xs text-slate-800 break-all">
+                  https://api.telegram.org/bot&lt;BOT_TOKEN&gt;/getUpdates
+                </code>{' '}
+                и скопируйте поле{' '}
+                <code className="rounded bg-slate-200 px-1 py-0.5 text-xs text-slate-800">chat.id</code>.
+              </p>
+            </div>
+          ) : null}
         </div>
 
         <label className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">

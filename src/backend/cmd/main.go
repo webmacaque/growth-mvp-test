@@ -58,10 +58,7 @@ func main() {
 	router := gin.New()
 	router.Use(gin.Recovery(), gin.Logger())
 	router.Use(cors.New(cors.Config{
-		AllowOrigins: []string{
-			"http://localhost:5173",
-			"http://127.0.0.1:5173",
-		},
+		AllowOrigins: []string{cfg.FrontendURL},
 		AllowMethods: []string{
 			http.MethodGet,
 			http.MethodPost,
